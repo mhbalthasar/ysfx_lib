@@ -106,7 +106,8 @@ if(YSFX_GFX)
                 target_compile_definitions(lice
                     PUBLIC
                         "SWELL_TARGET_GDK=3"
-                        "SWELL_SUPPORT_GTK")
+                        "SWELL_SUPPORT_GTK"
+                        "SWELL_MAKING_DYLIB")
                 target_link_libraries(lice
                     PUBLIC
                         PkgConfig::GTK3

@@ -25,6 +25,7 @@ jobs:
             portable: "OFF"
             nasm: true
             smoke: "ON"
+            window_smoke: "ON"
             deployment_target: ''
           - rid: windows-arm64
             os: windows-2022
@@ -32,6 +33,7 @@ jobs:
             portable: "ON"
             nasm: false
             smoke: "OFF"
+            window_smoke: "OFF"
             deployment_target: ''
           - rid: linux-x64
             os: ubuntu-24.04
@@ -39,6 +41,7 @@ jobs:
             portable: "OFF"
             nasm: false
             smoke: "ON"
+            window_smoke: "ON"
             deployment_target: ''
           - rid: linux-arm64
             os: ubuntu-24.04-arm
@@ -46,6 +49,7 @@ jobs:
             portable: "ON"
             nasm: false
             smoke: "ON"
+            window_smoke: "ON"
             deployment_target: ''
           - rid: linux-loongarch64
             os: ubuntu-24.04
@@ -53,6 +57,7 @@ jobs:
             portable: "ON"
             nasm: false
             smoke: "OFF"
+            window_smoke: "OFF"
             deployment_target: ''
             cross_toolchain: true
           - rid: macos-x64
@@ -61,6 +66,7 @@ jobs:
             portable: "OFF"
             nasm: false
             smoke: "ON"
+            window_smoke: "ON"
             deployment_target: '10.13'
           - rid: macos-arm64
             os: macos-15
@@ -68,6 +74,7 @@ jobs:
             portable: "ON"
             nasm: false
             smoke: "ON"
+            window_smoke: "ON"
             deployment_target: '11.0'
 
     runs-on: ${{ matrix.os }}
@@ -181,18 +188,27 @@ jobs:
         run: ctest --test-dir build --output-on-failure -C Release
 
       - name: GFX window smoke (native)
-        if: "runner.os != 'Linux' || !matrix.cross_toolchain"
+        if: matrix.window_smoke == 'ON'
         shell: bash
         run: |
+          set -o pipefail
           if [ "$RUNNER_OS" = "Windows" ]; then
             exe=build/Release/ysfx_gfx_window_smoke.exe
           else
             exe=build/ysfx_gfx_window_smoke
           fi
           if [ "$RUNNER_OS" = "Linux" ]; then
-            xvfb-run -a "$exe" tests/ysfx_gfx_window.jsfx
+            xvfb-run -a "$exe" tests/ysfx_gfx_window.jsfx 2>&1 | tee gfx_smoke.log
           else
-            "$exe" tests/ysfx_gfx_window.jsfx
+            "$exe" tests/ysfx_gfx_window.jsfx 2>&1 | tee gfx_smoke.log
+          fi
+
+      - name: GFX smoke failure details
+        if: failure()
+        shell: bash
+        run: |
+          if [ -f gfx_smoke.log ]; then
+            while IFS= read -r line; do echo "::error::$line"; done < gfx_smoke.log
           fi
 
       - name: Install
