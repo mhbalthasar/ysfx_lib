@@ -180,7 +180,7 @@ jobs:
         if: matrix.smoke == 'ON'
         run: ctest --test-dir build --output-on-failure -C Release
 
-      - name: @gfx window smoke (native)
+      - name: GFX window smoke (native)
         if: "runner.os != 'Linux' || !matrix.cross_toolchain"
         shell: bash
         run: |
