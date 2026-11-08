@@ -454,7 +454,9 @@ struct ysfx_gfx_window_s {
             return false;
 
         SWELL_SetClassName(hwnd, kWindowClass);
-        SWELL_EnableMetal(hwnd, 1);
+        // Note: no SWELL_EnableMetal here.  The metal layer path breaks on
+        // newer macOS (-[NSViewBackingLayer setDevice:] does not exist); the
+        // default CGContext-backed drawing path works everywhere.
         SetWindowText(hwnd, title.c_str());
         SetWindowLong(hwnd, GWL_EXSTYLE,
                       GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_ACCEPTFILES);
