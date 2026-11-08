@@ -230,6 +230,24 @@ static bool build_menu_items(HMENU menu, const ysfx_menu_t *desc, uint32_t &inde
     return true;
 }
 
+#ifdef __APPLE__
+#include <objc/message.h>
+#include <objc/runtime.h>
+
+// SWELL expects the host application to have set up NSApplication (REAPER
+// does).  Make sure one exists so that a plain host process can open @gfx
+// windows without going through swellappmain.
+static void ensure_ns_application()
+{
+    using msg_send_t = id (*)(id, SEL);
+    id cls = (id)objc_getClass("NSApplication");
+    if (!cls)
+        return;
+    id app = ((msg_send_t)&objc_msgSend)(cls, sel_registerName("sharedApplication"));
+    (void)app;
+}
+#endif
+
 struct ysfx_gfx_window_s {
     ysfx_t *fx = nullptr;
     ysfx_gfx_window_desc_t desc{};
@@ -419,6 +437,7 @@ struct ysfx_gfx_window_s {
             static_cast<INT_PTR>((desc.flags & ysfx_gfx_window_flag_resizable) ? 0x400001 : 0x400000));
 
 #ifdef __APPLE__
+        ensure_ns_application();
         void *pool = SWELL_InitAutoRelease();
 #endif
         hwnd = SWELL_CreateDialog(nullptr, resid, nullptr,
