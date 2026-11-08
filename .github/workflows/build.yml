@@ -181,7 +181,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -C Release
 
       - name: @gfx window smoke (native)
-        if: runner.os != 'Linux' || !matrix.cross_toolchain
+        if: "runner.os != 'Linux' || !matrix.cross_toolchain"
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
