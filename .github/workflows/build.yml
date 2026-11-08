@@ -152,7 +152,18 @@ jobs:
           -DYSFX_SMOKE_TEST=OFF
 
       - name: Build
-        run: cmake --build build --config Release --parallel 4
+        shell: bash
+        run: |
+          set -o pipefail
+          cmake --build build --config Release --parallel 4 2>&1 | tee build.log
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.rid }}
+          path: build.log
+          if-no-files-found: warn
 
       - name: Test (native)
         if: matrix.smoke == 'ON'
