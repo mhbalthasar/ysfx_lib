@@ -56,6 +56,7 @@ add_library(ysfx-private
         "sources/ysfx_api_gfx_dummy.hpp"
         "sources/ysfx_api_host_interaction_dummy.hpp"
         "sources/ysfx_api_gfx_lice.hpp"
+        "sources/ysfx_gfx_window.cpp"
         "sources/ysfx_eel_utils.cpp"
         "sources/ysfx_eel_utils.hpp"
         "sources/ysfx_preprocess.cpp"
@@ -145,6 +146,10 @@ target_link_libraries(ysfx PRIVATE
     wdl-base)
 if(YSFX_GFX)
     target_link_libraries(ysfx PUBLIC lice)
+    if(WIN32)
+        # The @gfx window uses the Win32 windowing API directly.
+        target_link_libraries(ysfx PRIVATE user32 gdi32 shell32)
+    endif()
 endif()
 add_library(ysfx::ysfx ALIAS ysfx)
 
@@ -198,4 +203,12 @@ if(YSFX_SMOKE_TEST)
         COMMAND ysfx_lib_smoke
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/ysfx_lib_smoke.jsfx"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/ysfx_lib_import.jsfx")
+endif()
+
+if(YSFX_GFX_WINDOW_SMOKE)
+    if(NOT YSFX_LIBRARY OR NOT YSFX_GFX)
+        message(FATAL_ERROR "YSFX_GFX_WINDOW_SMOKE requires YSFX_LIBRARY=ON and YSFX_GFX=ON")
+    endif()
+    add_executable(ysfx_gfx_window_smoke "tests/ysfx_gfx_window_smoke.c")
+    target_link_libraries(ysfx_gfx_window_smoke PRIVATE ysfx)
 endif()

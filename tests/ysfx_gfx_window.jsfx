@@ -1,0 +1,10 @@
+desc: TuneLab ysfx_lib window smoke
+author: TuneLab contributors
+
+@init
+gfx_frames = 0;
+
+@gfx
+gfx_frames += 1;
+gfx_set(0.1, 0.6, 0.2, 1);
+gfx_rect(0, 0, gfx_w, gfx_h);

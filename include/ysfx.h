@@ -484,6 +484,62 @@ YSFX_API bool ysfx_gfx_run(ysfx_t *fx);
 YSFX_API uint32_t ysfx_get_requested_framerate(ysfx_t *fx);
 
 //------------------------------------------------------------------------------
+// YSFX graphics window
+//
+// An optional self-contained top-level window for @gfx.  It owns the native
+// window, the framebuffer and the event loop; the host only needs to create it,
+// optionally run it on a dedicated UI thread, and destroy it afterwards.
+//
+// All functions except `ysfx_gfx_window_request_close` and
+// `ysfx_gfx_window_get_native_handle` must be called from the same UI thread
+// that created the window.  `request_close` is safe from any thread.
+
+typedef struct ysfx_gfx_window_s ysfx_gfx_window_t;
+
+enum {
+    // allow the user to resize the window
+    ysfx_gfx_window_flag_resizable = 1 << 0,
+    // keep the window above other windows where the platform supports it
+    ysfx_gfx_window_flag_always_on_top = 1 << 1,
+};
+
+typedef struct ysfx_gfx_window_desc_s {
+    // window title; NULL uses the JSFX name
+    const char *title;
+    // requested initial client size in logical units; 0 uses 640x480
+    uint32_t width;
+    uint32_t height;
+    // display scale used when the JSFX opts into `gfx_ext_retina`; 0 means 1.0
+    ysfx_real scale_factor;
+    // combination of `ysfx_gfx_window_flag_*`
+    uint32_t flags;
+} ysfx_gfx_window_desc_t;
+
+// Create and show a window for a compiled JSFX which has an @gfx section.
+// Returns NULL when the JSFX has no @gfx section or the native window could
+// not be created.  The window holds a reference to `fx`.
+YSFX_API ysfx_gfx_window_t *ysfx_gfx_window_create(ysfx_t *fx, const ysfx_gfx_window_desc_t *desc);
+// Destroy the window.  Call this on the UI thread after `run`/`pump` returns.
+YSFX_API void ysfx_gfx_window_destroy(ysfx_gfx_window_t *window);
+// Whether the native window still exists (the user may have closed it).
+YSFX_API bool ysfx_gfx_window_is_open(const ysfx_gfx_window_t *window);
+// Process events and render one frame if it is due.  `timeout_ms` bounds the
+// sleep when no frame is due.  Returns false once the window has closed.
+YSFX_API bool ysfx_gfx_window_pump(ysfx_gfx_window_t *window, int32_t timeout_ms);
+// Blocking event loop; returns 0 after the window is closed.
+YSFX_API int32_t ysfx_gfx_window_run(ysfx_gfx_window_t *window);
+// Ask the window to close.  Safe to call from another thread.
+YSFX_API void ysfx_gfx_window_request_close(ysfx_gfx_window_t *window);
+// Change the window title.
+YSFX_API void ysfx_gfx_window_set_title(ysfx_gfx_window_t *window, const char *title);
+// Resize the client area.
+YSFX_API void ysfx_gfx_window_resize(ysfx_gfx_window_t *window, uint32_t width, uint32_t height);
+// Show or hide the window.
+YSFX_API void ysfx_gfx_window_show(ysfx_gfx_window_t *window, bool show);
+// Native handle: HWND on Windows, SWELL HWND on Linux/macOS.
+YSFX_API void *ysfx_gfx_window_get_native_handle(const ysfx_gfx_window_t *window);
+
+//------------------------------------------------------------------------------
 // YSFX key map
 
 // these key definitions match those of pugl

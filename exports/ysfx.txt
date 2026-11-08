@@ -110,5 +110,15 @@ ysfx_gfx_update_mouse
 ysfx_gfx_set_window_state
 ysfx_gfx_run
 ysfx_get_requested_framerate
+ysfx_gfx_window_create
+ysfx_gfx_window_destroy
+ysfx_gfx_window_is_open
+ysfx_gfx_window_pump
+ysfx_gfx_window_run
+ysfx_gfx_window_request_close
+ysfx_gfx_window_set_title
+ysfx_gfx_window_resize
+ysfx_gfx_window_show
+ysfx_gfx_window_get_native_handle
 ysfx_parse_menu
 ysfx_menu_free

@@ -99,6 +99,36 @@ not execute target code.
 ctest --test-dir build --output-on-failure
 ```
 
+## Native `@gfx` window
+
+The library exposes an optional self-contained editor window, so the host does
+not have to implement a graphics view. `ysfx_gfx_window_create` opens a
+top-level window for a compiled effect with an `@gfx` section and owns a
+reference to `ysfx_t`; `ysfx_gfx_window_pump` or `ysfx_gfx_window_run` drives
+the event loop, input and repaint; `ysfx_gfx_window_request_close` is safe
+from another thread.
+
+All other window functions must run on the thread that created the window.
+The native handle (`ysfx_gfx_window_get_native_handle`) is an `HWND` on
+Windows (real Win32) and a SWELL `HWND` on Linux/macOS; callers that need a
+real platform handle should query the platform from SWELL on non-Windows.
+
+The implementation uses Win32 directly on Windows and the vendored
+SWELL/LICE windowing layer elsewhere, so it adds no GUI dependency and builds
+on every RID in the CI matrix. Keyboard input is translated to the ysfx key
+map on both paths; SWELL does not emit `WM_CHAR`, so printable characters are
+derived from `WM_KEYDOWN` there.
+
+`YSFX_GFX_WINDOW_SMOKE=ON` builds a manual smoke program that opens the window,
+pumps it for a short time and closes it:
+
+```bash
+cmake -S . -B build -DYSFX_LIBRARY=ON -DYSFX_GFX=ON \
+  -DYSFX_GFX_WINDOW_SMOKE=ON -DYSFX_PLUGIN=OFF
+cmake --build build --target ysfx_gfx_window_smoke
+./build/ysfx_gfx_window_smoke tests/ysfx_gfx_window.jsfx
+```
+
 ## Source hygiene
 
 The repository contains source and license texts only. Build trees, object
