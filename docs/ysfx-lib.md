@@ -10,8 +10,10 @@ but it is not part of the CI contract.
 ## Build contract
 
 - Library target: `ysfx`
-- Shared library output: `ysfx.tlhost.dll`, `libysfx.tlhost.so`, or
-  `libysfx.tlhost.dylib` (the suffix is selected by the packaging job)
+- Shared library artifact: `ysfx.tlhost.dll`, `libysfx.tlhost.so`, or
+  `libysfx.tlhost.dylib` (the CI builds the generic `ysfx` target and renames
+  the installed file during packaging; `YSFX_LIBRARY_OUTPUT_NAME` can also
+  set the name directly on generators that preserve dots)
 - Public header: `include/ysfx.h`
 - Graphics: `YSFX_GFX=ON`, which provides the offscreen `@gfx` API
 - State: slider state plus `@serialize` blobs through `ysfx_save_state` /

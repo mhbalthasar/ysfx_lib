@@ -77,7 +77,10 @@ jobs:
 
       - name: Install NASM (Windows x64 only)
         if: runner.os == 'Windows' && matrix.nasm
-        run: choco install nasm -y --no-progress
+        run: |
+          choco install nasm -y --no-progress
+          "C:\Program Files\NASM" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "C:\ProgramData\chocolatey\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install Linux build dependencies
         if: runner.os == 'Linux' && !matrix.cross_toolchain
@@ -101,7 +104,6 @@ jobs:
           -A ${{ matrix.arch }}
           -DCMAKE_BUILD_TYPE=Release
           -DYSFX_LIBRARY=ON
-          -DYSFX_LIBRARY_OUTPUT_NAME=ysfx.tlhost
           -DYSFX_PLUGIN=OFF
           -DYSFX_GFX=ON
           -DYSFX_PORTABLE=${{ matrix.portable }}
@@ -117,7 +119,6 @@ jobs:
           -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
           -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ matrix.deployment_target }}
           -DYSFX_LIBRARY=ON
-          -DYSFX_LIBRARY_OUTPUT_NAME=ysfx.tlhost
           -DYSFX_PLUGIN=OFF
           -DYSFX_GFX=ON
           -DYSFX_PORTABLE=${{ matrix.portable }}
@@ -130,7 +131,6 @@ jobs:
           -G Ninja
           -DCMAKE_BUILD_TYPE=Release
           -DYSFX_LIBRARY=ON
-          -DYSFX_LIBRARY_OUTPUT_NAME=ysfx.tlhost
           -DYSFX_PLUGIN=OFF
           -DYSFX_GFX=ON
           -DYSFX_PORTABLE=${{ matrix.portable }}
@@ -146,14 +146,13 @@ jobs:
           -DCMAKE_DISABLE_FIND_PACKAGE_Fontconfig=TRUE
           -DCMAKE_DISABLE_FIND_PACKAGE_Freetype=TRUE
           -DYSFX_LIBRARY=ON
-          -DYSFX_LIBRARY_OUTPUT_NAME=ysfx.tlhost
           -DYSFX_PLUGIN=OFF
           -DYSFX_GFX=ON
           -DYSFX_PORTABLE=ON
           -DYSFX_SMOKE_TEST=OFF
 
       - name: Build
-        run: cmake --build build --target ysfx --parallel 4 --config Release
+        run: cmake --build build --config Release --parallel 4
 
       - name: Test (native)
         if: matrix.smoke == 'ON'
@@ -167,7 +166,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force "artifacts/${{ matrix.rid }}" | Out-Null
-          Copy-Item "dist/bin/ysfx.tlhost.dll" "artifacts/${{ matrix.rid }}/"
+          Copy-Item "dist/bin/ysfx.dll" "artifacts/${{ matrix.rid }}/ysfx.tlhost.dll"
           Copy-Item "include/ysfx.h" "artifacts/${{ matrix.rid }}/"
           Copy-Item "LICENSE" "artifacts/${{ matrix.rid }}/"
           Copy-Item "NOTICE.md" "artifacts/${{ matrix.rid }}/"
@@ -176,7 +175,15 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           mkdir -p "artifacts/${{ matrix.rid }}"
-          cp dist/lib/libysfx.tlhost.* "artifacts/${{ matrix.rid }}/"
+          if [ -f "dist/lib/libysfx.so" ]; then
+            cp "dist/lib/libysfx.so" "artifacts/${{ matrix.rid }}/libysfx.tlhost.so"
+          elif [ -f "dist/lib/libysfx.dylib" ]; then
+            cp "dist/lib/libysfx.dylib" "artifacts/${{ matrix.rid }}/libysfx.tlhost.dylib"
+          else
+            echo "no shared library found in dist/lib" >&2
+            ls -la dist/lib >&2
+            exit 1
+          fi
           cp include/ysfx.h "artifacts/${{ matrix.rid }}/"
           cp LICENSE "artifacts/${{ matrix.rid }}/"
           cp NOTICE.md "artifacts/${{ matrix.rid }}/"
