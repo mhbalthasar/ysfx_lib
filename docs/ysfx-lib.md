@@ -91,8 +91,9 @@ OwnVST3's six RIDs.
 
 `YSFX_SMOKE_TEST=ON` builds a plain C program that loads a JSFX, compiles all
 sections, processes 2-in/2-out audio, round-trips slider and `@serialize`
-state, and calls the offscreen `@gfx` API. It runs on native jobs only; cross
-jobs compile the library but do not execute target code.
+state, calls the offscreen `@gfx` API, and resolves an `import` from the file's
+directory. It runs on native jobs only; cross jobs compile the library but do
+not execute target code.
 
 ```bash
 ctest --test-dir build --output-on-failure

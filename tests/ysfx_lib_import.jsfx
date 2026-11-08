@@ -1,0 +1,8 @@
+desc: import smoke
+import ysfx_lib_import.jsfx-inc
+
+@init
+imported_value = imported;
+
+@sample
+spl0 = spl0;

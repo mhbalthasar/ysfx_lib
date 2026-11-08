@@ -195,5 +195,7 @@ if(YSFX_SMOKE_TEST)
     target_link_libraries(ysfx_lib_smoke PRIVATE ysfx)
     add_test(
         NAME ysfx_lib_smoke
-        COMMAND ysfx_lib_smoke "${CMAKE_CURRENT_SOURCE_DIR}/tests/ysfx_lib_smoke.jsfx")
+        COMMAND ysfx_lib_smoke
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/ysfx_lib_smoke.jsfx"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/ysfx_lib_import.jsfx")
 endif()

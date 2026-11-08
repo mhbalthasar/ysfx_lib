@@ -55,8 +55,8 @@ static int check_process(ysfx_t *fx, float gain, float expected_l, float expecte
 
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
-        fprintf(stderr, "usage: ysfx_lib_smoke <file.jsfx>\n");
+    if (argc != 3) {
+        fprintf(stderr, "usage: ysfx_lib_smoke <file.jsfx> <import.jsfx>\n");
         return 2;
     }
 
@@ -141,8 +141,19 @@ int main(int argc, char **argv)
         return fail("gfx did not render the red background");
 
     free(pixels);
+
+    ysfx_t *import_fx = ysfx_new(config);
+    if (!ysfx_load_file(import_fx, argv[2], 0))
+        return fail("ysfx_load_file (import)");
+    if (!ysfx_compile(import_fx, 0))
+        return fail("ysfx_compile (import)");
+    ysfx_init(import_fx);
+    if (ysfx_read_var(import_fx, "imported") != 77.0)
+        return fail("import did not resolve the include file");
+    ysfx_free(import_fx);
+
     ysfx_free(fx);
     ysfx_config_free(config);
-    printf("PASS: load/compile/process/state/@gfx\n");
+    printf("PASS: load/compile/process/state/@gfx/import\n");
     return 0;
 }
