@@ -425,10 +425,12 @@ struct ysfx_gfx_window_s {
 
     bool create_native()
     {
-#ifndef SWELL_TARGET_GDK
+#if !defined(SWELL_TARGET_GDK) && !defined(__APPLE__)
         // The headless SWELL backend only makes virtual windows; refuse to
         // create one so the host can report "no editor" instead of showing
-        // nothing.  Real Linux builds define SWELL_TARGET_GDK.
+        // nothing.  Real Linux builds define SWELL_TARGET_GDK; macOS uses
+        // the Cocoa SWELL backend.
+        YGFX_DBG("create: headless SWELL, no visible window possible\n");
         return false;
 #else
         // 0x400001 asks SWELL for a normal top-level, resizable window.
