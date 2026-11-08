@@ -33,6 +33,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <new>
@@ -79,6 +80,25 @@ static inline double clampd(double v, double lo, double hi)
 {
     return v < lo ? lo : (v > hi ? hi : v);
 }
+
+// Set YSFX_GFX_WINDOW_DEBUG=1 to trace the creation path on stderr.  This is
+// a debugging aid for hosts and the smoke test, not part of the API.
+static bool gfx_window_debug()
+{
+    static const bool enabled = [] {
+        const char *env = getenv("YSFX_GFX_WINDOW_DEBUG");
+        return env && *env && *env != '0';
+    }();
+    return enabled;
+}
+
+#define YGFX_DBG(...)                          \
+    do {                                       \
+        if (gfx_window_debug()) {              \
+            fprintf(stderr, "ysfx_gfx_window: " __VA_ARGS__); \
+            fflush(stderr);                    \
+        }                                      \
+    } while (0)
 
 #ifdef _WIN32
 static std::wstring utf8_to_wide(const char *text)
@@ -1154,18 +1174,32 @@ extern "C" {
 ysfx_gfx_window_t *ysfx_gfx_window_create(ysfx_t *fx, const ysfx_gfx_window_desc_t *desc)
 {
 #if !defined(YSFX_NO_GFX)
-    if (!fx || !ysfx_has_section(fx, ysfx_section_gfx))
+    if (!fx || !ysfx_has_section(fx, ysfx_section_gfx)) {
+        YGFX_DBG("create: effect has no @gfx section\n");
         return nullptr;
+    }
 
     auto *window = new (std::nothrow) ysfx_gfx_window_s(fx, desc);
-    if (!window)
+    if (!window) {
+        YGFX_DBG("create: out of memory\n");
         return nullptr;
+    }
 
-    if (!window->create_native() || !window->ensure_framebuffer()) {
+    if (!window->create_native()) {
+        YGFX_DBG("create: native window failed\n");
         window->destroy_native();
         delete window;
         return nullptr;
     }
+
+    if (!window->ensure_framebuffer()) {
+        YGFX_DBG("create: framebuffer failed\n");
+        window->destroy_native();
+        delete window;
+        return nullptr;
+    }
+
+    YGFX_DBG("create: ok\n");
 
     window->set_always_on_top((window->desc.flags & ysfx_gfx_window_flag_always_on_top) != 0);
     window->show_native(true);

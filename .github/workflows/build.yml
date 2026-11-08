@@ -198,9 +198,9 @@ jobs:
             exe=build/ysfx_gfx_window_smoke
           fi
           if [ "$RUNNER_OS" = "Linux" ]; then
-            xvfb-run -a "$exe" tests/ysfx_gfx_window.jsfx 2>&1 | tee gfx_smoke.log
+            YSFX_GFX_WINDOW_DEBUG=1 xvfb-run -a "$exe" tests/ysfx_gfx_window.jsfx 2>&1 | tee gfx_smoke.log
           else
-            "$exe" tests/ysfx_gfx_window.jsfx 2>&1 | tee gfx_smoke.log
+            YSFX_GFX_WINDOW_DEBUG=1 "$exe" tests/ysfx_gfx_window.jsfx 2>&1 | tee gfx_smoke.log
           fi
 
       - name: GFX smoke failure details
