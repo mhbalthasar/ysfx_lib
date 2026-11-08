@@ -53,11 +53,16 @@ that dependency, which is what the ARM64 job does.
 
 ### Linux
 
-Native x64/ARM64 builds need a C++17 compiler, CMake, and optionally
-Fontconfig/Freetype for font rendering. The LoongArch64 job cross-compiles with
-the Ubuntu `gcc-14-loongarch64-linux-gnu` packages and the toolchain file in
-`cmake/toolchains/linux-loongarch64.cmake`. Fontconfig/Freetype are disabled
-for that cross build; `@gfx` itself does not require them.
+Native x64/ARM64 builds need a C++17 compiler, CMake, Fontconfig/Freetype for
+font rendering, and GTK3/GL/X11 development packages for the visible `@gfx`
+window backend (`libgtk-3-dev libgl-dev libx11-dev libxi-dev`). The build
+detects them automatically and reports the chosen SWELL backend
+(`@gfx window backend: gdk`); without them it falls back to the headless
+SWELL backend, where `ysfx_gfx_window_create()` returns NULL instead of an
+invisible window. The LoongArch64 job cross-compiles with the Ubuntu
+`gcc-14-loongarch64-linux-gnu` packages and the toolchain file in
+`cmake/toolchains/linux-loongarch64.cmake`; it always uses the headless
+backend, and `@gfx` itself does not require GDK.
 
 ### macOS
 
@@ -119,8 +124,9 @@ on every RID in the CI matrix. Keyboard input is translated to the ysfx key
 map on both paths; SWELL does not emit `WM_CHAR`, so printable characters are
 derived from `WM_KEYDOWN` there.
 
-`YSFX_GFX_WINDOW_SMOKE=ON` builds a manual smoke program that opens the window,
-pumps it for a short time and closes it:
+`YSFX_GFX_WINDOW_SMOKE=ON` builds a smoke program that opens the window,
+pumps it until `@gfx` has rendered, then closes it. The CI runs it on every
+native job (Linux under Xvfb) so the window path is exercised for real.
 
 ```bash
 cmake -S . -B build -DYSFX_LIBRARY=ON -DYSFX_GFX=ON \

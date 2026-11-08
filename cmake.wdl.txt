@@ -83,13 +83,47 @@ if(YSFX_GFX)
                 "thirdparty/WDL/source/WDL/swell/swell-ini.cpp"
                 "thirdparty/WDL/source/WDL/swell/swell.cpp")
         if(NOT APPLE)
+            # On Linux, prefer the real GDK window backend so that @gfx
+            # windows are actually visible.  Fall back to SWELL's generic
+            # (headless) implementation when the development packages are
+            # missing, or when YSFX_GFX_WINDOW_HEADLESS is ON.  The headless
+            # backend cannot show windows; ysfx_gfx_window_create() reports
+            # that by returning NULL.
+            find_package(PkgConfig QUIET)
+            if(PkgConfig_FOUND AND NOT YSFX_GFX_WINDOW_HEADLESS)
+                pkg_check_modules(GTK3 QUIET IMPORTED_TARGET gtk+-3.0)
+            endif()
+            if(NOT CMAKE_CROSSCOMPILING)
+                find_package(OpenGL QUIET)
+                find_package(X11 QUIET)
+            endif()
+
+            if(TARGET PkgConfig::GTK3 AND OPENGL_FOUND AND X11_FOUND AND X11_Xi_FOUND)
+                set(YSFX_SWELL_BACKEND "gdk")
+                target_sources(lice
+                    PRIVATE
+                        "thirdparty/WDL/source/WDL/swell/swell-generic-gdk.cpp")
+                target_compile_definitions(lice
+                    PUBLIC
+                        "SWELL_TARGET_GDK=3"
+                        "SWELL_SUPPORT_GTK")
+                target_link_libraries(lice
+                    PUBLIC
+                        PkgConfig::GTK3
+                    PRIVATE
+                        OpenGL::GL
+                        X11::X11
+                        X11::Xi)
+            else()
+                set(YSFX_SWELL_BACKEND "headless")
+            endif()
+
             target_sources(lice
                 PRIVATE
                     "thirdparty/WDL/source/WDL/swell/swell-appstub-generic.cpp"
                     "thirdparty/WDL/source/WDL/swell/swell-dlg-generic.cpp"
                     "thirdparty/WDL/source/WDL/swell/swell-gdi-generic.cpp"
                     "thirdparty/WDL/source/WDL/swell/swell-gdi-lice.cpp"
-                    "thirdparty/WDL/source/WDL/swell/swell-generic-gdk.cpp"
                     "thirdparty/WDL/source/WDL/swell/swell-generic-headless.cpp"
                     "thirdparty/WDL/source/WDL/swell/swell-kb-generic.cpp"
                     "thirdparty/WDL/source/WDL/swell/swell-menu-generic.cpp"

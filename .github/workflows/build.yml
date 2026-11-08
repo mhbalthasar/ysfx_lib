@@ -86,7 +86,8 @@ jobs:
         if: runner.os == 'Linux' && !matrix.cross_toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libfontconfig1-dev libfreetype6-dev
+          sudo apt-get install -y cmake ninja-build libfontconfig1-dev libfreetype6-dev \
+            libgtk-3-dev libgl-dev libx11-dev libxi-dev xvfb
 
       - name: Install LoongArch64 cross toolchain
         if: matrix.cross_toolchain
@@ -109,6 +110,7 @@ jobs:
           -DYSFX_PORTABLE=${{ matrix.portable }}
           -DYSFX_STATIC_CRT=ON
           -DYSFX_SMOKE_TEST=${{ matrix.smoke }}
+          -DYSFX_GFX_WINDOW_SMOKE=ON
 
       - name: Configure (macOS)
         if: runner.os == 'macOS'
@@ -123,6 +125,7 @@ jobs:
           -DYSFX_GFX=ON
           -DYSFX_PORTABLE=${{ matrix.portable }}
           -DYSFX_SMOKE_TEST=${{ matrix.smoke }}
+          -DYSFX_GFX_WINDOW_SMOKE=ON
 
       - name: Configure (Linux native)
         if: runner.os == 'Linux' && !matrix.cross_toolchain
@@ -135,6 +138,7 @@ jobs:
           -DYSFX_GFX=ON
           -DYSFX_PORTABLE=${{ matrix.portable }}
           -DYSFX_SMOKE_TEST=${{ matrix.smoke }}
+          -DYSFX_GFX_WINDOW_SMOKE=ON
 
       - name: Configure (Linux LoongArch64 cross)
         if: matrix.cross_toolchain
@@ -175,6 +179,21 @@ jobs:
       - name: Test (native)
         if: matrix.smoke == 'ON'
         run: ctest --test-dir build --output-on-failure -C Release
+
+      - name: @gfx window smoke (native)
+        if: runner.os != 'Linux' || !matrix.cross_toolchain
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            exe=build/Release/ysfx_gfx_window_smoke.exe
+          else
+            exe=build/ysfx_gfx_window_smoke
+          fi
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a "$exe" tests/ysfx_gfx_window.jsfx
+          else
+            "$exe" tests/ysfx_gfx_window.jsfx
+          fi
 
       - name: Install
         run: cmake --install build --config Release --prefix dist

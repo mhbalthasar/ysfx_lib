@@ -387,6 +387,12 @@ struct ysfx_gfx_window_s {
 
     bool create_native()
     {
+#ifndef SWELL_TARGET_GDK
+        // The headless SWELL backend only makes virtual windows; refuse to
+        // create one so the host can report "no editor" instead of showing
+        // nothing.  Real Linux builds define SWELL_TARGET_GDK.
+        return false;
+#else
         // 0x400001 asks SWELL for a normal top-level, resizable window.
         // 0x400000 asks for a normal top-level, fixed-size window.
         const char *resid = reinterpret_cast<const char *>(
@@ -418,6 +424,7 @@ struct ysfx_gfx_window_s {
 
         cursor = LoadCursor(nullptr, reinterpret_cast<const char *>(static_cast<INT_PTR>(32512)));
         return true;
+#endif
     }
 
     void destroy_native()
