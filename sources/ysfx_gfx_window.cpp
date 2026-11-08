@@ -396,7 +396,8 @@ struct ysfx_gfx_window_s {
         void *pool = SWELL_InitAutoRelease();
 #endif
         hwnd = SWELL_CreateDialog(nullptr, resid, nullptr,
-                                  reinterpret_cast<DLGPROC>(&ysfx_gfx_window_s::window_proc), this);
+                                  reinterpret_cast<DLGPROC>(&ysfx_gfx_window_s::window_proc),
+                                  reinterpret_cast<LPARAM>(this));
 #ifdef __APPLE__
         if (pool)
             SWELL_QuitAutoRelease(pool);
@@ -406,6 +407,7 @@ struct ysfx_gfx_window_s {
             return false;
 
         SWELL_SetClassName(hwnd, kWindowClass);
+        SWELL_EnableMetal(hwnd, 1);
         SetWindowText(hwnd, title.c_str());
         SetWindowLong(hwnd, GWL_EXSTYLE,
                       GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_ACCEPTFILES);
