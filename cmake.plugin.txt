@@ -1,0 +1,160 @@
+# -*- cmake -*-
+# Copyright 2021 Jean Pierre Cimalando
+# Copyright 2024 Joep Vanlier
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Modifications by Joep Vanlier, 2024
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+include(FetchContent)
+
+if(YSFX_PLUGIN_USE_SYSTEM_JUCE)
+    find_package(JUCE REQUIRED)
+else()
+    FetchContent_Declare(juce
+        URL "https://github.com/juce-framework/JUCE/archive/refs/tags/8.0.6.tar.gz"
+        URL_HASH "SHA512=EA9C44A72DB6DA4350CD12159876535F833BC46760B0CCC494C714E8577E4393A7F7BB1CC14147760C2579A2AEA7A55DE50D959D411A23A852B5136DA63A83BF")
+
+    FetchContent_GetProperties(juce)
+    if(NOT juce_POPULATED)
+        FetchContent_Populate(juce)
+        add_subdirectory("${juce_SOURCE_DIR}" "${juce_BINARY_DIR}" EXCLUDE_FROM_ALL)
+    endif()
+endif()
+
+if(YSFX_PLUGIN_VST3_SDK_PATH)
+    juce_set_vst3_sdk_path("${YSFX_PLUGIN_VST3_SDK_PATH}")
+endif()
+
+add_subdirectory(thirdparty/clap-juce-extensions EXCLUDE_FROM_ALL)
+
+function(add_new_target target_name is_synth)
+    if(${is_synth})
+        set(SUFFIX " instrument")
+        set(CODE_END "y")
+        set(CLAP_SUFFIX "")
+        set(CATEGORY "Instrument")
+        set(CLAP_TYPE "instrument")
+    else()
+        set(SUFFIX " FX")
+        set(CODE_END "z")
+        set(CLAP_SUFFIX "-fx")
+        set(CATEGORY "Fx")
+        set(CLAP_TYPE "audio-effect")
+    endif()
+
+    juce_add_plugin("${target_name}"
+        PLUGIN_CODE "ysf${CODE_END}"
+        PLUGIN_MANUFACTURER_CODE "S4IK"
+        PRODUCT_NAME "ysfx-s${SUFFIX}"
+        JUCE_PLUGIN_NAME "ysfx-s${SUFFIX}"
+        JUCE_DESCRIPTION "Host for JSFX plugins"
+        COMPANY_NAME "Jean Pierre Cimalando / Joep Vanlier"
+        BUNDLE_ID "Jean_Pierre_Cimalando__Joep_Vanlier"
+        FORMATS VST3 AU
+        NEEDS_MIDI_INPUT TRUE
+        NEEDS_MIDI_OUTPUT TRUE
+        NEEDS_CURL FALSE
+        NEEDS_WEB_BROWSER FALSE
+        IS_SYNTH "${is_synth}"
+        VST3_CATEGORIES "${CATEGORY}"
+        AU_MAIN_TYPE "kAudioUnitType_Effect"
+        COPY_PLUGIN_AFTER_BUILD "${YSFX_PLUGIN_COPY}")
+
+    target_sources("${target_name}"
+        PRIVATE
+            "plugin/processor.cpp"
+            "plugin/processor.h"
+            "plugin/editor.cpp"
+            "plugin/editor.h"
+            "plugin/lookandfeel.cpp"
+            "plugin/lookandfeel.h"
+            "plugin/parameter.cpp"
+            "plugin/parameter.h"
+            "plugin/info.cpp"
+            "plugin/info.h"
+            "plugin/bank_io.cpp"
+            "plugin/bank_io.h"            
+            "plugin/components/parameters_panel.cpp"
+            "plugin/components/parameters_panel.h"
+            "plugin/components/graphics_view.cpp"
+            "plugin/components/graphics_view.h"
+            "plugin/components/ide_view.cpp"
+            "plugin/components/ide_view.h"
+            "plugin/components/rpl_view.cpp"
+            "plugin/components/rpl_view.h"
+            "plugin/components/searchable_popup.h"
+            "plugin/components/dialogs.h"
+            "plugin/components/dialogs.cpp"
+            "plugin/components/divider.h"
+            "plugin/components/tokenizer.h"
+            "plugin/components/tokenizer_functions.h"
+            "plugin/components/tokenizer.cpp"
+            "plugin/components/ysfx_document.h"
+            "plugin/components/ysfx_document.cpp"
+            "plugin/components/misc_buttons.h"
+            "plugin/components/misc_buttons.cpp"
+            "plugin/utility/audio_processor_suspender.h"
+            "plugin/utility/functional_timer.h"
+            "plugin/utility/async_updater.cpp"
+            "plugin/utility/async_updater.h"
+            "plugin/utility/rt_semaphore.cpp"
+            "plugin/utility/rt_semaphore.h"
+            "plugin/utility/sync_bitset.hpp")
+
+    target_compile_definitions("${target_name}"
+    PUBLIC
+        VERSION_STRING="${PROJECT_VERSION}"
+        "JUCE_WEB_BROWSER=0"
+        "JUCE_USE_CURL=0"
+        "JUCE_VST3_CAN_REPLACE_VST2=0")
+
+    target_include_directories("${target_name}"
+        PRIVATE
+            "plugin")
+
+    target_link_libraries("${target_name}"
+    PRIVATE
+        ysfx::ysfx
+        json
+        juce::juce_audio_processors
+        juce::juce_gui_basics
+        juce::juce_gui_extra
+        juce::juce_opengl
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_warning_flags)
+
+    if(YSFX_PLUGIN_LTO)
+        target_link_libraries("${target_name}" PRIVATE juce::juce_recommended_lto_flags)
+    endif()
+
+    if(YSFX_PLUGIN_FORCE_DEBUG)
+        target_compile_definitions("${target_name}" PRIVATE "JUCE_FORCE_DEBUG=1")
+    endif()
+
+    clap_juce_extensions_plugin(
+        TARGET "${target_name}"
+        PLUGIN_NAME "ysfx-s${SUFFIX}"
+        CLAP_ID "org.saike.ysfx-s${CLAP_SUFFIX}"
+        CLAP_FEATURES "${CLAP_TYPE}"
+        CLAP_PROCESS_EVENTS_RESOLUTION_SAMPLES 64
+        CLAP_USE_JUCE_PARAMETER_RANGES DISCRETE
+        MANUFACTURER_NAME "Sai'ke"
+        MANUFACTURER_CODE S4IK)
+endfunction()
+
+add_new_target(ysfx_plugin_instrument TRUE)
+add_new_target(ysfx_plugin FALSE)

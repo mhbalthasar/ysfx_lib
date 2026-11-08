@@ -1,0 +1,199 @@
+# -*- cmake -*-
+# Copyright 2021 Jean Pierre Cimalando
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+# ysfx-private
+#    A ysfx target which gives access to the internals.
+#    This target is adequate for unit-testing.
+# ------------------------------------------------------------------------------
+add_library(ysfx-private
+    OBJECT
+        "sources/ysfx.cpp"
+        "sources/ysfx.hpp"
+        "sources/ysfx_config.cpp"
+        "sources/ysfx_config.hpp"
+        "sources/ysfx_midi.cpp"
+        "sources/ysfx_midi.hpp"
+        "sources/ysfx_reader.cpp"
+        "sources/ysfx_reader.hpp"
+        "sources/ysfx_parse.cpp"
+        "sources/ysfx_parse.hpp"
+        "sources/ysfx_parse_menu.cpp"
+        "sources/ysfx_parse_menu.hpp"
+        "sources/ysfx_preset.cpp"
+        "sources/ysfx_preset.hpp"
+        "sources/ysfx_audio_wav.cpp"
+        "sources/ysfx_audio_wav.hpp"
+        "sources/ysfx_audio_flac.cpp"
+        "sources/ysfx_audio_flac.hpp"
+        "sources/ysfx_utils.cpp"
+        "sources/ysfx_utils.hpp"
+        "sources/ysfx_utils_fts.cpp"
+        "sources/ysfx_api_eel.cpp"
+        "sources/ysfx_api_eel.hpp"
+        "sources/ysfx_gmem.cpp"
+        "sources/ysfx_gmem.hpp"
+        "sources/ysfx_api_reaper.cpp"
+        "sources/ysfx_api_reaper.hpp"
+        "sources/ysfx_api_file.cpp"
+        "sources/ysfx_api_file.hpp"
+        "sources/ysfx_api_gfx.cpp"
+        "sources/ysfx_api_gfx.hpp"
+        "sources/ysfx_api_gfx_dummy.hpp"
+        "sources/ysfx_api_host_interaction_dummy.hpp"
+        "sources/ysfx_api_gfx_lice.hpp"
+        "sources/ysfx_eel_utils.cpp"
+        "sources/ysfx_eel_utils.hpp"
+        "sources/ysfx_preprocess.cpp"
+        "sources/ysfx_preprocess.hpp"
+        "sources/utility/sync_bitset.hpp"
+        "sources/base64/Base64.hpp")
+target_compile_definitions(ysfx-private
+    PRIVATE
+        "${YSFX_FILE_OFFSET_BITS_GENEXP}")
+if(MSVC)
+    target_compile_definitions(ysfx-private
+        PRIVATE
+            "_CRT_NONSTDC_NO_WARNINGS")
+endif()
+if(WIN32)
+    target_compile_definitions(ysfx-private
+        PRIVATE
+            "NOMINMAX")
+endif()
+if(NOT YSFX_FTS_IS_AVAILABLE)
+    target_compile_definitions(ysfx-private
+        PRIVATE
+            "YSFX_NO_FTS")
+endif()
+if(YSFX_FTS_IS_AVAILABLE AND NOT YSFX_FTS_HAS_LFS_SUPPORT)
+    target_compile_definitions(ysfx-private
+        PRIVATE
+            "YSFX_FTS_LACKS_LFS_SUPPORT")
+endif()
+target_include_directories(ysfx-private
+    PUBLIC
+        "include"
+        "sources")
+target_link_libraries(ysfx-private
+    PUBLIC
+        eel2
+        eel2nasm
+        wdl-base
+        dr_libs)
+
+if(YSFX_GFX)
+    target_link_libraries(ysfx-private PUBLIC lice)
+else()
+    target_compile_definitions(ysfx-private PUBLIC "YSFX_NO_GFX")
+endif()
+
+# ysfx::ysfx
+#    A ysfx target which gives access to the public interface.
+#    This target is adequate for normal use.
+# ------------------------------------------------------------------------------
+if(YSFX_LIBRARY)
+    # The object library contains the definitions of the C API functions, so
+    # the DLL build definition must be present while compiling those objects,
+    # not just while linking the shared library.
+    if(WIN32)
+        target_compile_definitions(ysfx-private PRIVATE "YSFX_DLL_BUILD")
+    endif()
+    add_library(ysfx SHARED)
+    set_target_properties(ysfx PROPERTIES
+        OUTPUT_NAME "${YSFX_LIBRARY_OUTPUT_NAME}"
+        WINDOWS_EXPORT_ALL_SYMBOLS OFF)
+    if(WIN32)
+        set_target_properties(ysfx PROPERTIES PREFIX "")
+    endif()
+    if(APPLE)
+        set_target_properties(ysfx PROPERTIES
+            INSTALL_RPATH "@loader_path"
+            BUILD_WITH_INSTALL_RPATH ON)
+    elseif(UNIX)
+        set_target_properties(ysfx PROPERTIES
+            INSTALL_RPATH "$ORIGIN"
+            BUILD_WITH_INSTALL_RPATH ON)
+    endif()
+    if(MINGW)
+        # Keep the produced DLL self-contained; do not require the MinGW
+        # runtime DLLs to be installed next to it.
+        target_link_options(ysfx PRIVATE "-static")
+    endif()
+else()
+    add_library(ysfx STATIC)
+endif()
+target_include_directories(ysfx PUBLIC "include")
+target_link_libraries(ysfx PRIVATE
+    ysfx-private
+    eel2
+    eel2nasm
+    wdl-base)
+if(YSFX_GFX)
+    target_link_libraries(ysfx PUBLIC lice)
+endif()
+add_library(ysfx::ysfx ALIAS ysfx)
+
+set_property(TARGET ysfx PROPERTY PUBLIC_HEADER "include/ysfx.h")
+
+# generate the function export list
+add_custom_command(
+    OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/exports/ysfx.txt"
+    COMMAND "${CMAKE_COMMAND}" "-P" "${PROJECT_SOURCE_DIR}/cmake/ExtractYsfxExports.cmake"
+    DEPENDS "${PROJECT_SOURCE_DIR}/cmake/ExtractYsfxExports.cmake"
+    DEPENDS "include/ysfx.h"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    VERBATIM)
+add_custom_target(ysfx-api DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/exports/ysfx.txt")
+add_dependencies(ysfx ysfx-api)
+
+# strip the static library, to keep API symbols only (on supported platforms)
+if(YSFX_DEEP_STRIP)
+    # TODO currently broken, don't use
+    if(NOT APPLE AND NOT WIN32)
+        if(OBJCOPY_PROGRAM AND RANLIB_PROGRAM)
+            add_custom_command(
+                TARGET ysfx POST_BUILD
+                COMMAND "${OBJCOPY_PROGRAM}" "--keep-symbols=${CMAKE_CURRENT_SOURCE_DIR}/exports/ysfx.txt" "--strip-all" "$<TARGET_FILE:ysfx>"
+                COMMAND "${RANLIB_PROGRAM}" "$<TARGET_FILE:ysfx>"
+                VERBATIM)
+        endif()
+    endif()
+endif()
+
+# install
+install(
+    TARGETS ysfx
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+
+# A tiny end-to-end check of the shipped C ABI.  It intentionally lives in
+# the standalone repository (not in the upstream test suite) because it is
+# also the integration contract used by TuneLab.
+if(YSFX_SMOKE_TEST)
+    if(NOT YSFX_LIBRARY)
+        message(FATAL_ERROR "YSFX_SMOKE_TEST requires YSFX_LIBRARY=ON")
+    endif()
+    enable_testing()
+    add_executable(ysfx_lib_smoke "tests/ysfx_lib_smoke.c")
+    target_link_libraries(ysfx_lib_smoke PRIVATE ysfx)
+    add_test(
+        NAME ysfx_lib_smoke
+        COMMAND ysfx_lib_smoke "${CMAKE_CURRENT_SOURCE_DIR}/tests/ysfx_lib_smoke.jsfx")
+endif()

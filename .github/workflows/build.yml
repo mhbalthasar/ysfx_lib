@@ -1,0 +1,189 @@
+﻿name: build
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.rid }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: windows-x64
+            os: windows-2022
+            arch: x64
+            portable: "OFF"
+            nasm: true
+            smoke: "ON"
+            deployment_target: ''
+          - rid: windows-arm64
+            os: windows-2022
+            arch: ARM64
+            portable: "ON"
+            nasm: false
+            smoke: "OFF"
+            deployment_target: ''
+          - rid: linux-x64
+            os: ubuntu-24.04
+            arch: ''
+            portable: "OFF"
+            nasm: false
+            smoke: "ON"
+            deployment_target: ''
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+            arch: ''
+            portable: "ON"
+            nasm: false
+            smoke: "ON"
+            deployment_target: ''
+          - rid: linux-loongarch64
+            os: ubuntu-24.04
+            arch: ''
+            portable: "ON"
+            nasm: false
+            smoke: "OFF"
+            deployment_target: ''
+            cross_toolchain: true
+          - rid: macos-x64
+            os: macos-15-intel
+            arch: x86_64
+            portable: "OFF"
+            nasm: false
+            smoke: "ON"
+            deployment_target: '10.13'
+          - rid: macos-arm64
+            os: macos-15
+            arch: arm64
+            portable: "ON"
+            nasm: false
+            smoke: "ON"
+            deployment_target: '11.0'
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install NASM (Windows x64 only)
+        if: runner.os == 'Windows' && matrix.nasm
+        run: choco install nasm -y --no-progress
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux' && !matrix.cross_toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libfontconfig1-dev libfreetype6-dev
+
+      - name: Install LoongArch64 cross toolchain
+        if: matrix.cross_toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build \
+            gcc-14-loongarch64-linux-gnu \
+            g++-14-loongarch64-linux-gnu
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          cmake -S . -B build
+          -G "Visual Studio 17 2022"
+          -A ${{ matrix.arch }}
+          -DCMAKE_BUILD_TYPE=Release
+          -DYSFX_LIBRARY=ON
+          -DYSFX_LIBRARY_OUTPUT_NAME=ysfx.tlhost
+          -DYSFX_PLUGIN=OFF
+          -DYSFX_GFX=ON
+          -DYSFX_PORTABLE=${{ matrix.portable }}
+          -DYSFX_STATIC_CRT=ON
+          -DYSFX_SMOKE_TEST=${{ matrix.smoke }}
+
+      - name: Configure (macOS)
+        if: runner.os == 'macOS'
+        run: >
+          cmake -S . -B build
+          -G "Unix Makefiles"
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ matrix.deployment_target }}
+          -DYSFX_LIBRARY=ON
+          -DYSFX_LIBRARY_OUTPUT_NAME=ysfx.tlhost
+          -DYSFX_PLUGIN=OFF
+          -DYSFX_GFX=ON
+          -DYSFX_PORTABLE=${{ matrix.portable }}
+          -DYSFX_SMOKE_TEST=${{ matrix.smoke }}
+
+      - name: Configure (Linux native)
+        if: runner.os == 'Linux' && !matrix.cross_toolchain
+        run: >
+          cmake -S . -B build
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DYSFX_LIBRARY=ON
+          -DYSFX_LIBRARY_OUTPUT_NAME=ysfx.tlhost
+          -DYSFX_PLUGIN=OFF
+          -DYSFX_GFX=ON
+          -DYSFX_PORTABLE=${{ matrix.portable }}
+          -DYSFX_SMOKE_TEST=${{ matrix.smoke }}
+
+      - name: Configure (Linux LoongArch64 cross)
+        if: matrix.cross_toolchain
+        run: >
+          cmake -S . -B build
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/linux-loongarch64.cmake
+          -DCMAKE_DISABLE_FIND_PACKAGE_Fontconfig=TRUE
+          -DCMAKE_DISABLE_FIND_PACKAGE_Freetype=TRUE
+          -DYSFX_LIBRARY=ON
+          -DYSFX_LIBRARY_OUTPUT_NAME=ysfx.tlhost
+          -DYSFX_PLUGIN=OFF
+          -DYSFX_GFX=ON
+          -DYSFX_PORTABLE=ON
+          -DYSFX_SMOKE_TEST=OFF
+
+      - name: Build
+        run: cmake --build build --target ysfx --parallel 4 --config Release
+
+      - name: Test (native)
+        if: matrix.smoke == 'ON'
+        run: ctest --test-dir build --output-on-failure -C Release
+
+      - name: Install
+        run: cmake --install build --config Release --prefix dist
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "artifacts/${{ matrix.rid }}" | Out-Null
+          Copy-Item "dist/bin/ysfx.tlhost.dll" "artifacts/${{ matrix.rid }}/"
+          Copy-Item "include/ysfx.h" "artifacts/${{ matrix.rid }}/"
+          Copy-Item "LICENSE" "artifacts/${{ matrix.rid }}/"
+          Copy-Item "NOTICE.md" "artifacts/${{ matrix.rid }}/"
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p "artifacts/${{ matrix.rid }}"
+          cp dist/lib/libysfx.tlhost.* "artifacts/${{ matrix.rid }}/"
+          cp include/ysfx.h "artifacts/${{ matrix.rid }}/"
+          cp LICENSE "artifacts/${{ matrix.rid }}/"
+          cp NOTICE.md "artifacts/${{ matrix.rid }}/"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ysfx-${{ matrix.rid }}
+          path: artifacts/${{ matrix.rid }}
+          if-no-files-found: error

@@ -1,0 +1,103 @@
+# -*- cmake -*-
+# Copyright 2021 Jean Pierre Cimalando
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+include(GNUInstallDirs)
+include(CheckCSourceCompiles)
+find_package(Threads REQUIRED)
+
+# nasm
+# ------------------------------------------------------------------------------
+find_program(NASM_PROGRAM "nasm")
+
+# binutils
+# ------------------------------------------------------------------------------
+if(NOT APPLE AND NOT WIN32)
+    find_program(OBJCOPY_PROGRAM "objcopy")
+    find_program(RANLIB_PROGRAM "ranlib")
+    if(NOT OBJCOPY_PROGRAM)
+        message(WARNING "objcopy is missing, library cleanup will be skipped")
+    endif()
+    if(NOT RANLIB_PROGRAM)
+        message(WARNING "ranlib is missing, library cleanup will be skipped")
+    endif()
+endif()
+
+# Apple frameworks
+# ------------------------------------------------------------------------------
+
+if(APPLE)
+    function(ysfx_find_apple_framework NAME)
+        find_library("APPLE_${NAME}_FRAMEWORK" "${NAME}")
+        add_library("Apple_${NAME}" INTERFACE)
+        target_link_libraries("Apple_${NAME}" INTERFACE "${APPLE_${NAME}_FRAMEWORK}")
+        add_library("Apple::${NAME}" ALIAS "Apple_${NAME}")
+    endfunction()
+    ysfx_find_apple_framework(Cocoa)
+    ysfx_find_apple_framework(Carbon)
+    ysfx_find_apple_framework(Foundation)
+    ysfx_find_apple_framework(Metal)
+endif()
+
+# Graphics libraries
+# ------------------------------------------------------------------------------
+
+if(NOT WIN32 AND NOT APPLE)
+    find_package(Fontconfig)
+    find_package(Freetype)
+    if(NOT TARGET Freetype::Freetype)
+        message(WARNING "Freetype not found; fonts will not be supported")
+    elseif(NOT TARGET Fontconfig::Fontconfig)
+        message(WARNING "Fontconfig not found; font support will be limited")
+    endif()
+endif()
+
+# dr_libs
+# ------------------------------------------------------------------------------
+add_library(dr_libs INTERFACE)
+target_include_directories(dr_libs INTERFACE "thirdparty/dr_libs")
+
+# stb
+# ------------------------------------------------------------------------------
+add_library(stb INTERFACE)
+target_include_directories(stb INTERFACE "thirdparty/stb")
+
+# json
+# ------------------------------------------------------------------------------
+add_library(json INTERFACE)
+target_include_directories(json INTERFACE "thirdparty/json")
+
+# fts
+# ------------------------------------------------------------------------------
+if(WIN32)
+    set(YSFX_FTS_IS_AVAILABLE FALSE)
+else()
+    check_c_source_compiles("
+#include <fts.h>
+int main() { fts_close((FTS *)0); return 0; }"
+        YSFX_FTS_IS_AVAILABLE)
+endif()
+if(YSFX_FTS_IS_AVAILABLE)
+    function(ysfx_check_fts_has_lfs_support VAR)
+        set(CMAKE_REQUIRED_DEFINITIONS "-D_FILE_OFFSET_BITS=64")
+        check_c_source_compiles("
+#include <fts.h>
+int main() { fts_close((FTS *)0); return 0; }"
+            "${VAR}")
+    endfunction()
+    ysfx_check_fts_has_lfs_support(YSFX_FTS_HAS_LFS_SUPPORT)
+endif()
