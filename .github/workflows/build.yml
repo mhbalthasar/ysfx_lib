@@ -157,13 +157,15 @@ jobs:
           set -o pipefail
           cmake --build build --config Release --parallel 4 2>&1 | tee build.log
 
-      - name: Upload build log
+      - name: Show build log
         if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log-${{ matrix.rid }}
-          path: build.log
-          if-no-files-found: warn
+        shell: bash
+        run: |
+          {
+            echo '```'
+            cat build.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Test (native)
         if: matrix.smoke == 'ON'
